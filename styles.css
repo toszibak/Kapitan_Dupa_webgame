@@ -1,0 +1,494 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: sans-serif;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #00e626;
+    text-shadow: 0 0 4px #00e626, 0 0 10px rgba(0, 230, 38, 0.5);
+}
+
+/* =======================================================
+   CRT MONITOR CHASSIS & SCREEN TUBE (16:9)
+   ======================================================= */
+
+#crt-monitor {
+    position: relative;
+    width: min(94vw, 167.1vh);
+    height: min(52.875vw, 94vh);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #000000;
+}
+
+#crt-screen {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #020703;
+    clip-path: url(#crt-screen-clip);
+    -webkit-clip-path: url(#crt-screen-clip);
+    overflow: hidden;
+}
+
+/* Zielonkawo-szary obrys bańki kineskopu (1-2px rim) */
+.crt-rim {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 45;
+    filter: drop-shadow(0 0 3px rgba(0, 230, 38, 0.4));
+}
+
+/* Odblask światła (refleks w lewym górnym rogu z grafiki) */
+.crt-glare {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 40;
+    background: radial-gradient(
+        circle at 17% 18%,
+        rgba(255, 255, 255, 0.24) 0%,
+        rgba(255, 255, 255, 0.12) 65px,
+        rgba(255, 255, 255, 0.03) 130px,
+        transparent 190px
+    );
+}
+
+/* Raster poziomych linii skanowania */
+.crt-scanlines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 35;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(0, 0, 0, 0) 0px,
+        rgba(0, 0, 0, 0) 1.5px,
+        rgba(0, 0, 0, 0.42) 2px,
+        rgba(0, 0, 0, 0.42) 3px
+    );
+}
+
+/* Pasek zniekształceń i zakłóceń kineskopu (Rolling Glitch Bar) */
+.crt-glitch-bar {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 55px;
+    pointer-events: none;
+    z-index: 38;
+    background: linear-gradient(
+        to bottom,
+        transparent 0%,
+        rgba(0, 230, 38, 0.06) 15%,
+        rgba(255, 255, 255, 0.32) 46%,
+        rgba(0, 255, 80, 0.45) 50%,
+        rgba(0, 0, 0, 0.75) 54%,
+        rgba(0, 230, 38, 0.1) 80%,
+        transparent 100%
+    );
+    box-shadow: 
+        0 0 18px rgba(0, 230, 38, 0.45),
+        0 3px 0 rgba(255, 0, 80, 0.35),
+        0 -3px 0 rgba(0, 230, 255, 0.35);
+    backdrop-filter: brightness(1.3) contrast(1.2) hue-rotate(25deg);
+    -webkit-backdrop-filter: brightness(1.3) contrast(1.2) hue-rotate(25deg);
+    opacity: 0;
+    animation: crt-roll-glitch 13s ease-in-out infinite;
+}
+
+/* Przetaczanie paska zakłóceń co kilkanaście sekund */
+@keyframes crt-roll-glitch {
+    0%, 82% {
+        top: -90px;
+        opacity: 0;
+    }
+    83% {
+        top: -60px;
+        opacity: 0.9;
+    }
+    87% {
+        top: 30%;
+        opacity: 0.95;
+    }
+    91% {
+        top: 70%;
+        opacity: 0.9;
+    }
+    94% {
+        top: 105%;
+        opacity: 0.75;
+    }
+    95.5%, 100% {
+        top: 115%;
+        opacity: 0;
+    }
+}
+
+/* Winieta i cień krawędzi szkła kineskopu */
+.crt-vignette {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 30;
+    background: radial-gradient(
+        ellipse at center,
+        rgba(0, 0, 0, 0) 58%,
+        rgba(0, 0, 0, 0.4) 82%,
+        rgba(0, 0, 0, 0.96) 100%
+    );
+}
+
+/* =======================================================
+   GAME CONTAINER & ELEMENTS
+   ======================================================= */
+
+#container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#game {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    animation: crt-sync-jitter 13s ease-in-out infinite;
+}
+
+/* Skok synchronizacji pionowej / drżenie przy przejściu paska zakłóceń */
+@keyframes crt-sync-jitter {
+    0%, 82% {
+        transform: none;
+        filter: none;
+    }
+    83.5% {
+        transform: translateX(-4px) skewX(0.6deg);
+        filter: drop-shadow(2px 0 0 rgba(255, 0, 50, 0.4)) drop-shadow(-2px 0 0 rgba(0, 220, 255, 0.4));
+    }
+    85% {
+        transform: translateX(3px) skewX(-0.4deg);
+    }
+    87% {
+        transform: translateX(-2px);
+        filter: none;
+    }
+    89% {
+        transform: translateX(4px) skewX(0.5deg);
+        filter: drop-shadow(-2px 0 0 rgba(255, 0, 50, 0.4)) drop-shadow(2px 0 0 rgba(0, 220, 255, 0.4));
+    }
+    91% {
+        transform: translateX(-2px);
+    }
+    93% {
+        transform: translateX(2px);
+        filter: none;
+    }
+    95% {
+        transform: none;
+    }
+    100% {
+        transform: none;
+        filter: none;
+    }
+}
+
+/* Centralne postaci (pikselowe, ostre krawędzie) */
+#figures {
+    display: none;
+    justify-content: center;
+    align-items: flex-end;
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+}
+
+#playerImg {
+    height: 250px;
+    width: auto;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    filter: drop-shadow(0 0 6px rgba(0, 230, 38, 0.55));
+}
+
+#start,
+#restart {
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    z-index: 15;
+    filter: drop-shadow(0 0 6px rgba(0, 230, 38, 0.55));
+}
+
+/* =======================================================
+   BOTTOM HUD (ZAKRZYWIONE RAMKI SCORE / HIT / SHOT)
+   ======================================================= */
+
+#bottom-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    width: 92%;
+    position: absolute;
+    bottom: 30px;
+    left: 4%;
+    z-index: 20;
+}
+
+.hud-label {
+    color: #00e626;
+    font-size: 18px;
+    letter-spacing: 1px;
+    text-shadow: 0 0 5px rgba(0, 230, 38, 0.7);
+}
+
+/* Lewa ramka: SCORE (nachylona pod kątem krzywizny CRT) */
+#score {
+    border: 2.5px solid #00e626;
+    border-radius: 12px;
+    padding: 6px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    transform: rotate(-3.5deg) translateY(-2px);
+    box-shadow: 0 0 8px rgba(0, 230, 38, 0.3), inset 0 0 6px rgba(0, 230, 38, 0.15);
+}
+
+#scoreValue {
+    font-size: 22px;
+    color: #00e626;
+    text-shadow: 0 0 6px rgba(0, 230, 38, 0.8);
+    margin-top: 2px;
+}
+
+/* Środkowa ramka: HIT (obniżona w centrum łuku) */
+#hit {
+    border: 2.5px solid #00e626;
+    border-radius: 14px;
+    padding: 4px 18px;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    transform: translateY(8px);
+    box-shadow: 0 0 8px rgba(0, 230, 38, 0.3), inset 0 0 6px rgba(0, 230, 38, 0.15);
+}
+
+#hitImg {
+    height: 38px;
+    filter: drop-shadow(0 0 4px rgba(0, 230, 38, 0.5));
+}
+
+/* Prawa ramka: SHOT / TIMER (nachylona w prawo pod kątem) */
+#timer {
+    border: 2.5px solid #00e626;
+    border-radius: 12px;
+    padding: 6px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transform: rotate(3.5deg) translateY(-2px);
+    box-shadow: 0 0 8px rgba(0, 230, 38, 0.3), inset 0 0 6px rgba(0, 230, 38, 0.15);
+}
+
+#timerValue {
+    font-size: 18px;
+    color: #00e626;
+    text-shadow: 0 0 6px rgba(0, 230, 38, 0.8);
+    margin-top: 2px;
+}
+
+/* =======================================================
+   MESSAGES, GAME OVER & SCOREBOARD
+   ======================================================= */
+
+#message {
+    text-align: center;
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 25;
+}
+
+#finalScore {
+    font-size: 30px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#finalScore h1 {
+    font-size: 110px;
+    margin-bottom: -20px;
+}
+
+#gameOver {
+    display: none;
+    filter: drop-shadow(0 0 8px rgba(0, 230, 38, 0.6));
+}
+
+#input {
+    font-size: 40px;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 15px;
+}
+
+input {
+    border: none;
+    background: transparent;
+    font-size: 42px;
+    color: #00e626;
+    text-align: center;
+    caret-color: transparent;
+    text-shadow: 0 0 6px rgba(0, 230, 38, 0.8);
+}
+
+input:focus {
+    outline: none;
+    text-transform: uppercase;
+}
+
+::placeholder {
+    color: #00e626;
+    opacity: 0.8;
+    text-align: center;
+    font-family: sans-serif;
+    font-weight: bold;
+}
+
+#nameInput {
+    display: none;
+    margin-top: 10px;
+}
+
+#scoreboard {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    position: absolute;
+    top: 45%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 25;
+    min-width: 260px;
+    max-height: 65%;
+    overflow-y: auto;
+    padding: 12px 24px;
+    background: rgba(0, 20, 5, 0.75);
+    border: 2px solid #00e626;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0, 230, 38, 0.35), inset 0 0 10px rgba(0, 230, 38, 0.15);
+}
+
+#scoreboard h3 {
+    text-align: center;
+    width: 100%;
+    margin: 0 0 10px 0;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: #00e626;
+    text-shadow: 0 0 8px rgba(0, 230, 38, 0.8);
+    border-bottom: 1px dashed #00e626;
+    padding-bottom: 6px;
+}
+
+#scoreboard p {
+    text-align: left;
+    margin: 4px 0;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 30px;
+    font-size: 16px;
+    color: #00e626;
+    text-shadow: 0 0 5px rgba(0, 230, 38, 0.6);
+}
+
+/* Przycisk do pełnego rankingu w prawym górnym rogu ekranu CRT */
+#leaderboard-link {
+    position: absolute;
+    top: 50px;
+    right: 55px;
+    color: #00e626;
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 1px;
+    border: 1.5px solid #00e626;
+    border-radius: 6px;
+    padding: 5px 12px;
+    background: rgba(0, 20, 5, 0.75);
+    z-index: 50;
+    transition: all 0.2s ease;
+    text-shadow: 0 0 5px rgba(0, 230, 38, 0.6);
+    box-shadow: 0 0 8px rgba(0, 230, 38, 0.2);
+}
+
+#leaderboard-link:hover {
+    background: #00e626;
+    color: #020703;
+    box-shadow: 0 0 12px #00e626;
+    text-shadow: none;
+}
+
+/* Link wewnątrz okna scoreboardu */
+.crt-link {
+    margin-top: 10px;
+    color: #00e626;
+    text-decoration: none;
+    font-size: 13px;
+    letter-spacing: 1px;
+    border: 1.5px dashed #00e626;
+    border-radius: 6px;
+    padding: 6px 12px;
+    text-align: center;
+    width: 100%;
+    display: inline-block;
+    transition: all 0.2s ease;
+    text-shadow: 0 0 4px #00e626;
+}
+
+.crt-link:hover {
+    background: rgba(0, 230, 38, 0.2);
+    border-style: solid;
+    box-shadow: 0 0 8px #00e626;
+}
+

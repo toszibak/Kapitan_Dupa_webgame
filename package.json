@@ -1,0 +1,12 @@
+{
+  "name": "kapitan-dupa",
+  "version": "1.0.0",
+  "description": "Gra retro Kapitan Dupa z filtrem CRT i rankingiem",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["game", "crt", "retro", "arcade"],
+  "author": "",
+  "license": "ISC"
+}

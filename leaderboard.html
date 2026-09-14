@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pl">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>🏆 Ranking - Kapitan Dupa</title>
+        <link rel="shortcut icon" href="images/active.svg" type="image/x-icon" />
+        <link rel="stylesheet" type="text/css" href="styles.css" />
+        <style>
+            /* Specyficzne style tablicy wyników wewnątrz monitora CRT */
+            #leaderboard-container {
+                position: absolute;
+                top: 7%;
+                left: 7%;
+                width: 86%;
+                height: 86%;
+                display: flex;
+                flex-direction: column;
+                z-index: 25;
+                animation: crt-sync-jitter 13s ease-in-out infinite;
+            }
+
+            /* Nagłówek */
+            .lb-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 2px dashed rgba(0, 230, 38, 0.6);
+                padding-bottom: 8px;
+                margin-bottom: 10px;
+                flex-shrink: 0;
+            }
+
+            .lb-title-group h1 {
+                margin: 0;
+                font-size: clamp(16px, 2.4vw, 24px);
+                letter-spacing: 2px;
+                color: #00e626;
+                text-shadow: 0 0 6px #00e626, 0 0 12px rgba(0, 230, 38, 0.5);
+            }
+
+            .lb-title-group p {
+                margin: 2px 0 0 0;
+                font-size: clamp(10px, 1.3vw, 12px);
+                color: rgba(0, 230, 38, 0.75);
+                letter-spacing: 1px;
+            }
+
+            /* Pasek nawigacji i filtrów */
+            .lb-controls {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+                margin-bottom: 8px;
+                flex-wrap: wrap;
+                flex-shrink: 0;
+            }
+
+            .lb-filters {
+                display: flex;
+                gap: 6px;
+            }
+
+            .lb-btn {
+                background: rgba(0, 20, 5, 0.75);
+                color: #00e626;
+                border: 1.5px solid #00e626;
+                border-radius: 6px;
+                padding: 5px 12px;
+                font-family: inherit;
+                font-size: clamp(11px, 1.4vw, 13px);
+                font-weight: bold;
+                text-decoration: none;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                text-shadow: 0 0 4px #00e626;
+                box-shadow: 0 0 6px rgba(0, 230, 38, 0.2);
+            }
+
+            .lb-btn:hover, .lb-btn.active {
+                background: #00e626;
+                color: #020703;
+                box-shadow: 0 0 12px #00e626;
+                text-shadow: none;
+            }
+
+            /* Wyszukiwarka */
+            .lb-search {
+                flex: 1;
+                max-width: 260px;
+                min-width: 140px;
+            }
+
+            .lb-search input {
+                width: 100%;
+                background: rgba(0, 25, 8, 0.75);
+                border: 1.5px solid #00e626;
+                border-radius: 6px;
+                padding: 5px 10px;
+                color: #00e626;
+                font-family: inherit;
+                font-size: clamp(11px, 1.4vw, 13px);
+                font-weight: bold;
+                text-transform: uppercase;
+                outline: none;
+                text-shadow: 0 0 4px #00e626;
+                box-sizing: border-box;
+            }
+
+            .lb-search input:focus {
+                box-shadow: 0 0 10px rgba(0, 230, 38, 0.6);
+                border-color: #00ff2b;
+            }
+
+            .lb-search input::placeholder {
+                color: rgba(0, 230, 38, 0.45);
+            }
+
+            /* Pasek statystyk */
+            .lb-stats {
+                display: flex;
+                justify-content: space-between;
+                font-size: clamp(10px, 1.2vw, 12px);
+                color: rgba(0, 230, 38, 0.75);
+                padding: 0 4px 6px 4px;
+                border-bottom: 1px solid rgba(0, 230, 38, 0.25);
+                margin-bottom: 6px;
+                flex-shrink: 0;
+            }
+
+            /* Kontener tabeli ze scrollem */
+            .lb-table-wrapper {
+                flex: 1;
+                min-height: 0;
+                overflow-y: auto;
+                background: rgba(0, 15, 5, 0.65);
+                border: 1.5px solid rgba(0, 230, 38, 0.5);
+                border-radius: 8px;
+                padding: 4px 8px;
+                box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+            }
+
+            /* Pasek przewijania CRT */
+            .lb-table-wrapper::-webkit-scrollbar {
+                width: 6px;
+            }
+            .lb-table-wrapper::-webkit-scrollbar-track {
+                background: rgba(0, 20, 5, 0.6);
+            }
+            .lb-table-wrapper::-webkit-scrollbar-thumb {
+                background: #00e626;
+                border-radius: 3px;
+                box-shadow: 0 0 5px #00e626;
+            }
+
+            .lb-table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            .lb-table thead {
+                position: sticky;
+                top: 0;
+                background: #020803;
+                z-index: 2;
+            }
+
+            .lb-table th {
+                text-align: left;
+                padding: 6px 10px;
+                font-size: clamp(11px, 1.3vw, 13px);
+                color: rgba(0, 230, 38, 0.7);
+                border-bottom: 1px dashed rgba(0, 230, 38, 0.6);
+            }
+
+            .lb-table th.col-score {
+                text-align: right;
+            }
+
+            .lb-table td {
+                padding: 7px 10px;
+                font-size: clamp(12px, 1.5vw, 15px);
+                border-bottom: 1px solid rgba(0, 230, 38, 0.12);
+            }
+
+            .lb-table tr:hover {
+                background: rgba(0, 230, 38, 0.12);
+            }
+
+            .col-rank {
+                width: 70px;
+            }
+
+            .col-score {
+                text-align: right;
+                letter-spacing: 1px;
+            }
+
+            /* Wyróżnienia podium */
+            .rank-1 {
+                color: #ffdf00;
+                text-shadow: 0 0 8px #ffdf00;
+            }
+            .rank-2 {
+                color: #e0e0e0;
+                text-shadow: 0 0 8px #e0e0e0;
+            }
+            .rank-3 {
+                color: #cd7f32;
+                text-shadow: 0 0 8px #cd7f32;
+            }
+
+            .lb-msg {
+                text-align: center;
+                padding: 25px;
+                color: rgba(0, 230, 38, 0.6);
+                font-size: 14px;
+            }
+
+            .lb-loading {
+                animation: lb-blink 0.8s infinite;
+            }
+
+            @keyframes lb-blink {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.2; }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Definicja krzywizny kineskopu (Barrel Distortion ClipPath) -->
+        <svg width="0" height="0" style="position: absolute; pointer-events: none;">
+            <defs>
+                <clipPath id="crt-screen-clip" clipPathUnits="objectBoundingBox">
+                    <path d="M 0.07,0.04
+                             Q 0.5,0.01 0.93,0.04
+                             Q 0.98,0.05 0.985,0.12
+                             Q 0.998,0.5 0.985,0.88
+                             Q 0.98,0.95 0.93,0.96
+                             Q 0.5,0.99 0.07,0.96
+                             Q 0.02,0.95 0.015,0.88
+                             Q 0.002,0.5 0.015,0.12
+                             Q 0.02,0.05 0.07,0.04 Z" />
+                </clipPath>
+            </defs>
+        </svg>
+
+        <!-- Monitor CRT w stylu retro arcade -->
+        <div id="crt-monitor">
+            <div id="crt-screen">
+                <!-- Odblask światła (refleks w lewym górnym rogu z grafiki) -->
+                <div class="crt-glare"></div>
+                <!-- Raster poziomych linii skanowania -->
+                <div class="crt-scanlines"></div>
+                <!-- Pasek zniekształceń i zakłóceń kineskopu -->
+                <div class="crt-glitch-bar"></div>
+                <!-- Winieta i cień krawędzi szkła kineskopu -->
+                <div class="crt-vignette"></div>
+
+                <!-- Zielonkawy obrys bańki kineskopu (1-2px rim) -->
+                <svg class="crt-rim" viewBox="0 0 1000 562.5" preserveAspectRatio="none">
+                    <path d="M 70,22.5
+                             Q 500,5.6 930,22.5
+                             Q 980,28 985,67.5
+                             Q 998,281.25 985,495
+                             Q 980,534.4 930,540
+                             Q 500,556.9 70,540
+                             Q 20,534.4 15,495
+                             Q 2,281.25 15,67.5
+                             Q 20,28 70,22.5 Z"
+                          fill="none"
+                          stroke="rgba(0, 220, 50, 0.45)"
+                          stroke-width="2.5" />
+                </svg>
+
+                <!-- Zawartość Rankingu wewnątrz kineskopu CRT -->
+                <div id="leaderboard-container">
+                    <div class="lb-header">
+                        <div class="lb-title-group">
+                            <h1>🏆 SALA CHWAŁY</h1>
+                            <p>Oficjalny Ranking Galaktyki Kurvix (i Kujwdubie)</p>
+                        </div>
+                        <a href="index.html" class="lb-btn">⬅ WRÓĆ DO GRY</a>
+                    </div>
+
+                    <div class="lb-controls">
+                        <div class="lb-filters">
+                            <button class="lb-btn active" id="btn-10" onclick="setFilter(10)">TOP 10</button>
+                            <button class="lb-btn" id="btn-100" onclick="setFilter(100)">TOP 100</button>
+                            <button class="lb-btn" id="btn-1000" onclick="setFilter(1000)">TOP 1000</button>
+                        </div>
+                        <div class="lb-search">
+                            <input
+                                type="text"
+                                id="search"
+                                placeholder="🔍 SZUKAJ NICKU..."
+                                oninput="handleSearch()"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="lb-stats">
+                        <span id="stat-count">ŁĄCZNIE GRACZY: ...</span>
+                        <span id="stat-best">NAJLEPSZY WYNIK: ...</span>
+                    </div>
+
+                    <div class="lb-table-wrapper">
+                        <table class="lb-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-rank">POZ.</th>
+                                    <th>GRACZ</th>
+                                    <th class="col-score">WYNIK</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scores-body">
+                                <tr>
+                                    <td colspan="3" class="lb-msg lb-loading">ŁADOWANIE DANYCH Z SERWERA...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let allScores = [];
+            let currentLimit = 10;
+            let searchQuery = "";
+
+            async function fetchLeaderboard() {
+                try {
+                    let res = await fetch("/scores");
+                    if (!res.ok) {
+                        res = await fetch("scores.json");
+                    }
+                    if (res.ok) {
+                        allScores = await res.json();
+                    } else {
+                        allScores = JSON.parse(localStorage.getItem("scores")) || [];
+                    }
+                } catch (e) {
+                    allScores = JSON.parse(localStorage.getItem("scores")) || [];
+                }
+
+                allScores.sort((a, b) => b.value - a.value);
+                renderTable();
+            }
+
+            function setFilter(limit) {
+                currentLimit = limit;
+                document.querySelectorAll(".lb-filters .lb-btn").forEach((btn) => btn.classList.remove("active"));
+                const activeBtn = document.getElementById("btn-" + limit);
+                if (activeBtn) activeBtn.classList.add("active");
+                renderTable();
+            }
+
+            function handleSearch() {
+                searchQuery = document.getElementById("search").value.trim().toUpperCase();
+                renderTable();
+            }
+
+            function renderTable() {
+                const tbody = document.getElementById("scores-body");
+                const statCount = document.getElementById("stat-count");
+                const statBest = document.getElementById("stat-best");
+
+                statCount.textContent = `ŁĄCZNIE GRACZY: ${allScores.length}`;
+                statBest.textContent = `NAJLEPSZY WYNIK: ${allScores[0] ? allScores[0].value + ' PKT' : '0 PKT'}`;
+
+                let filtered = allScores;
+
+                if (searchQuery !== "") {
+                    filtered = filtered.filter((s) =>
+                        String(s.name).toUpperCase().includes(searchQuery)
+                    );
+                }
+
+                const displayed = filtered.slice(0, currentLimit);
+
+                if (displayed.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="lb-msg">BRAK WYNIKÓW DO WYŚWIETLENIA</td></tr>`;
+                    return;
+                }
+
+                let html = "";
+                displayed.forEach((entry) => {
+                    const realRank = allScores.findIndex((s) => s === entry) + 1;
+                    let rankDisplay = `#${realRank}`;
+                    let rowClass = "";
+
+                    if (realRank === 1) {
+                        rankDisplay = `👑 #1`;
+                        rowClass = "rank-1";
+                    } else if (realRank === 2) {
+                        rankDisplay = `🥈 #2`;
+                        rowClass = "rank-2";
+                    } else if (realRank === 3) {
+                        rankDisplay = `🥉 #3`;
+                        rowClass = "rank-3";
+                    }
+
+                    html += `
+                        <tr class="${rowClass}">
+                            <td class="col-rank">${rankDisplay}</td>
+                            <td>${escapeHtml(entry.name)}</td>
+                            <td class="col-score">${entry.value} PKT</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+            }
+
+            function escapeHtml(text) {
+                const map = {
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#039;"
+                };
+                return String(text).replace(/[&<>"']/g, (m) => map[m]);
+            }
+
+            fetchLeaderboard();
+        </script>
+    </body>
+</html>
