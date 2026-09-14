@@ -1,69 +1,44 @@
-const fs = require("fs");
-const path = require("path");
+const { MongoClient } = require("mongodb");
 
-// Domyślne wyniki wczytywane z pliku scores.json
-function getDefaultScores() {
-    try {
-        const filePath = path.join(process.cwd(), "scores.json");
-        if (fs.existsSync(filePath)) {
-            const raw = fs.readFileSync(filePath, "utf-8");
-            const data = JSON.parse(raw);
-            if (Array.isArray(data)) {
-                return data;
-            }
-        }
-    } catch (e) {
-        console.error("Błąd odczytu lokalnego scores.json:", e);
+// Connection string z MongoDB Atlas (Environment Variable na Vercelu)
+const MONGODB_URI = process.env.MONGODB_URI;
+const DB_NAME = "kapitan-dupa";
+const COLLECTION = "scores";
+
+// Cache połączenia między wywołaniami funkcji (ważne na Vercelu)
+let cachedClient = null;
+let cachedDb = null;
+
+async function connectToDatabase() {
+    if (cachedClient && cachedDb) {
+        return { client: cachedClient, db: cachedDb };
     }
-    return [
-        { name: "KAPITAN", value: 3400 },
-        { name: "RUCHACZ", value: 2200 },
-        { name: "KUTAS", value: 1500 }
-    ];
+
+    if (!MONGODB_URI) {
+        throw new Error("Brak zmiennej środowiskowej MONGODB_URI");
+    }
+
+    const client = new MongoClient(MONGODB_URI, {
+        // Opcje zalecane dla serverless
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 5000,
+    });
+
+    await client.connect();
+    const db = client.db(DB_NAME);
+
+    cachedClient = client;
+    cachedDb = db;
+
+    return { client, db };
 }
 
-// Zmienne środowiskowe Vercel KV / Upstash Redis (dostępne po podpięciu Storage -> KV w Vercelu)
-const KV_URL = process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN;
-
-async function getKVScores() {
-    if (!KV_URL || !KV_TOKEN) return null;
-    try {
-        const res = await fetch(`${KV_URL}/get/scores`, {
-            headers: { Authorization: `Bearer ${KV_TOKEN}` }
-        });
-        if (res.ok) {
-            const data = await res.json();
-            if (data && data.result !== null && data.result !== undefined) {
-                return typeof data.result === "string" ? JSON.parse(data.result) : data.result;
-            }
-        }
-    } catch (err) {
-        console.error("Błąd pobierania z Vercel KV:", err);
-    }
-    return null;
-}
-
-async function setKVScores(scores) {
-    if (!KV_URL || !KV_TOKEN) return false;
-    try {
-        const res = await fetch(`${KV_URL}/set/scores`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${KV_TOKEN}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(JSON.stringify(scores))
-        });
-        return res.ok;
-    } catch (err) {
-        console.error("Błąd zapisu do Vercel KV:", err);
-        return false;
-    }
-}
-
-// Pamięć podręczna instancji funkcji (fallback)
-let memoryScores = null;
+// Domyślne wyniki (używane tylko przy pierwszym uruchomieniu, gdy kolekcja jest pusta)
+const DEFAULT_SCORES = [
+    { name: "KAPITAN", value: 3400 },
+    { name: "RUCHACZ", value: 2200 },
+    { name: "KUTAS", value: 1500 },
+];
 
 module.exports = async (req, res) => {
     // Nagłówki CORS
@@ -75,31 +50,43 @@ module.exports = async (req, res) => {
         return res.status(204).end();
     }
 
-    // 1. Pobierz aktualne wyniki (z Vercel KV lub pamięci/scores.json)
-    let scores = await getKVScores();
-    if (!scores) {
-        if (!memoryScores) {
-            memoryScores = getDefaultScores();
-        }
-        scores = memoryScores;
-    }
+    try {
+        const { db } = await connectToDatabase();
+        const collection = db.collection(COLLECTION);
 
-    // GET: Zwróć ranking posortowany malejąco (z opcjonalnym limitem np. ?limit=10, 100, 1000)
-    if (req.method === "GET") {
-        scores.sort((a, b) => b.value - a.value);
-        const urlObj = new URL(req.url, "http://localhost");
-        const limitParam = urlObj.searchParams.get("limit") || (req.query && req.query.limit);
-        const limit = parseInt(limitParam, 10);
-        if (!isNaN(limit) && limit > 0) {
-            return res.status(200).json(scores.slice(0, limit));
-        }
-        return res.status(200).json(scores);
-    }
+        // GET: Zwróć ranking posortowany malejąco (z opcjonalnym limitem)
+        if (req.method === "GET") {
+            const urlObj = new URL(req.url, "http://localhost");
+            const limitParam =
+                urlObj.searchParams.get("limit") ||
+                (req.query && req.query.limit);
+            const limit = parseInt(limitParam, 10);
 
-    // POST: Zapisz / zaktualizuj rekord gracza
-    if (req.method === "POST") {
-        try {
-            // Bezpieczne parsowanie body (req.body w Vercel jest już sparsowanym obiektem dla application/json)
+            let cursor = collection.find({}).sort({ value: -1 });
+
+            if (!isNaN(limit) && limit > 0) {
+                cursor = cursor.limit(limit);
+            }
+
+            let scores = await cursor.toArray();
+
+            // Jeśli baza jest pusta – wstaw domyślne wyniki
+            if (scores.length === 0) {
+                await collection.insertMany(DEFAULT_SCORES);
+                scores = DEFAULT_SCORES.slice().sort((a, b) => b.value - a.value);
+                if (!isNaN(limit) && limit > 0) {
+                    scores = scores.slice(0, limit);
+                }
+            }
+
+            // Usuwamy _id z odpowiedzi (żeby frontend dostał czysty format)
+            scores = scores.map(({ name, value }) => ({ name, value }));
+
+            return res.status(200).json(scores);
+        }
+
+        // POST: Zapisz / zaktualizuj rekord gracza
+        if (req.method === "POST") {
             let body = req.body;
             if (typeof body === "string") {
                 try {
@@ -115,34 +102,42 @@ module.exports = async (req, res) => {
                 return res.status(400).json({ error: "Brak nicku" });
             }
 
-            const existingIndex = scores.findIndex(
-                (s) => String(s.name).trim().toUpperCase() === rawName
-            );
+            // Szukamy istniejącego gracza
+            const existing = await collection.findOne({ name: rawName });
 
-            if (existingIndex !== -1) {
-                // Aktualizujemy tylko gdy nowy wynik jest lepszy od dotychczasowego rekordu
-                if (newValue > scores[existingIndex].value) {
-                    scores[existingIndex].value = newValue;
+            if (existing) {
+                // Aktualizujemy tylko gdy nowy wynik jest lepszy
+                if (newValue > existing.value) {
+                    await collection.updateOne(
+                        { name: rawName },
+                        { $set: { value: newValue } }
+                    );
                 }
             } else {
-                scores.push({ name: rawName, value: newValue });
+                // Nowy gracz
+                await collection.insertOne({ name: rawName, value: newValue });
             }
 
-            scores.sort((a, b) => b.value - a.value);
+            // Zwracamy aktualny ranking (posortowany)
+            const scores = await collection
+                .find({})
+                .sort({ value: -1 })
+                .toArray();
 
-            // Zapis do trwałej bazy KV (jeśli skonfigurowano na Vercelu)
-            if (KV_URL && KV_TOKEN) {
-                await setKVScores(scores);
-            } else {
-                memoryScores = scores;
-            }
+            const cleanScores = scores.map(({ name, value }) => ({
+                name,
+                value,
+            }));
 
-            return res.status(200).json(scores);
-        } catch (err) {
-            console.error("Błąd przetwarzania POST /api/scores:", err);
-            return res.status(500).json({ error: "Błąd serwera" });
+            return res.status(200).json(cleanScores);
         }
-    }
 
-    return res.status(405).json({ error: "Metoda niedozwolona" });
+        return res.status(405).json({ error: "Metoda niedozwolona" });
+    } catch (err) {
+        console.error("Błąd /api/scores:", err);
+        return res.status(500).json({
+            error: "Błąd serwera",
+            details: process.env.NODE_ENV === "development" ? err.message : undefined,
+        });
+    }
 };
