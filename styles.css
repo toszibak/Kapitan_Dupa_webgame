@@ -411,7 +411,7 @@ input:focus {
     z-index: 25;
     min-width: 260px;
     max-height: 65%;
-    overflow-y: auto;
+    overflow-y: visible;
     padding: 12px 24px;
     background: rgba(0, 20, 5, 0.75);
     border: 2px solid #00e626;
