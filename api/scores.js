@@ -35,9 +35,9 @@ async function connectToDatabase() {
 
 // Domyślne wyniki (używane tylko przy pierwszym uruchomieniu, gdy kolekcja jest pusta)
 const DEFAULT_SCORES = [
-    { name: "KAPITAN", value: 3400 },
-    { name: "RUCHACZ", value: 2200 },
-    { name: "KUTAS", value: 1500 },
+    { name: "KAPITAN", value: 500 },
+    { name: "RUCHACZ", value: 300 },
+    { name: "KUTAS", value: 150 },
 ];
 
 module.exports = async (req, res) => {
