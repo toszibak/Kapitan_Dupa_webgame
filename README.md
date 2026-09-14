@@ -3,6 +3,6 @@ Galaktyka Kurvix, zamieszkana przez kosmitów, została zaatakowana przez wielki
 <div align="center">
     <a href="">
         <b> Naprzód żołnierze!</b><br>
-        <img src="" height="200px">
+        <img src="https://raw.githubusercontent.com/toszibak/Kapitan_Dupa_webgame/82bcffb10241a54a8d209c4099769daa99f277d0/images/deactive.svg" height="200px">
     </a>
 </div>
