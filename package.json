@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node server.js"
   },
+  "dependencies": {
+    "mongodb": "^6.12.0"
+  },
   "keywords": ["game", "crt", "retro", "arcade"],
-  "author": "",
+  "author": "toszibak",
   "license": "ISC"
 }
